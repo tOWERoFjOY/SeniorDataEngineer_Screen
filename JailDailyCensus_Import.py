@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
+from pydantic import BaseModel, TypeAdapter
+from pandantic import Pandantic
+import pandantic.plugins.pandas
 
 load_dotenv()
 
@@ -22,6 +25,18 @@ headers = {
     "Authorization": API_KEY,
     "Content-Type": "application/json"
 }
+
+
+# Validation schema for api return object
+class RecordModel(BaseModel):
+    _id: int
+    _full_text: str
+    record_id: int
+    census_date: datetime
+    gender: str
+    race: str
+    age_at_booking: float
+    age_at_census: float
 
 
 # Helper functions
@@ -98,9 +113,11 @@ for month_interval in months_to_pull:
     all_records_in_range.extend(new_sets)
 
 print(str(len(all_records_in_range)) + " rows imported from WPRDC")
-df = pd.DataFrame(all_records_in_range)
-df['census_date'] = pd.to_datetime(df['census_date'])
-df['Month'] = df['census_date'].dt.to_period('M')
+df_draft = pd.DataFrame(all_records_in_range)
+validator = Pandantic(schema=RecordModel)
+df = df_draft.pandantic.filter(RecordModel)
+df.loc[:, 'census_date'] = pd.to_datetime(df['census_date'])
+df.loc[:, 'Month'] = df['census_date'].dt.month
 race_code = {
     "A": "Asian or Pacific Islander",
     "B": "Black or African American",
@@ -111,7 +128,7 @@ race_code = {
     "x": "Biracial",
     "O": "All Others"
 }
-df['race'] = df['race'].map(race_code)
+df.loc[:, 'race'] = df['race'].map(race_code)
 df['years_incarcerated'] = df['age_at_census'] - df['age_at_booking']
 filtered_df = df[(df['age_at_census'] < 125) & (df['age_at_census'] > 10)]
 

@@ -5,13 +5,13 @@ Build a small, reproducible pipeline that ingests data from the WPRDC CKAN API, 
 
 ## Requirements
 
-* [ ] Ingest the data programmatically (CKAN API or resource URL). No manual downloads.
-* [ ] Land raw data unchanged, then transform into a cleaned/modeled layer. Use any local stack you like (Python, SQL, DuckDB, SQLite, Postgres via Docker, dbt, etc). No cloud accounts required.
-* [ ] Make it re-runnable. Running it twice must not duplicate or corrupt data. Explain how you’d handle the dataset being updated.
-* [ ] Add data quality checks that would actually fail on bad data. Include at least one check you wrote because of something you found in this dataset.
-* [ ] Produce one output table that could be used to answer a question you chose (state the question).
-* [ ] Write a README.md covering decision you made in the process: the three most important design decisions and the alternatives you rejected, what surprised you in the data, what you’d do differently at 100x scale or with daily refreshes, and what you didn’t do and why.
-* [ ] AI disclosure: AI tools are allowed. Tell us which you used and for what purpose. We will ask you to walk through your code live should you progress to an interview round.
+* [X] Ingest the data programmatically (CKAN API or resource URL). No manual downloads.
+* [X] Land raw data unchanged, then transform into a cleaned/modeled layer. Use any local stack you like (Python, SQL, DuckDB, SQLite, Postgres via Docker, dbt, etc). No cloud accounts required.
+* [X] Make it re-runnable. Running it twice must not duplicate or corrupt data. Explain how you’d handle the dataset being updated.
+* [X] Add data quality checks that would actually fail on bad data. Include at least one check you wrote because of something you found in this dataset.
+* [X] Produce one output table that could be used to answer a question you chose (state the question).
+* [X] Write a README.md covering decision you made in the process: the three most important design decisions and the alternatives you rejected, what surprised you in the data, what you’d do differently at 100x scale or with daily refreshes, and what you didn’t do and why.
+* [X] AI disclosure: AI tools are allowed. Tell us which you used and for what purpose. We will ask you to walk through your code live should you progress to an interview round.
 
 ## Data Sets
 - [X] Allegheny County Property Sale Transactions
@@ -23,10 +23,17 @@ Build a small, reproducible pipeline that ingests data from the WPRDC CKAN API, 
 
 Attempted to use the ckan python library/wrapper suggested by the WPRDC, but the package had download conflicts due to a defunct dependency. Opted to use python requests library to interact with the REST api. 
 
-To ensure regular, programmatic access to the resource, I opted to employ SQL payloads to send to the API. This provides the easiest method for controlling the return from this dataset using simple SQL filters and select statements. Otherwise, API calls will pull the entirety of the dataset and its 500 thousand rows. 
+To ensure regular, programmatic access to the resource, I opted to employ SQL payloads and interact with the datastore_search_sql endpoint on the API. This provides the easiest method for controlling the return from this dataset using simple SQL filters and select statements. Otherwise, API calls will pull the entirety of the dataset and its 8 million rows. 
 
-While 500 thousand rows is not an unwieldly dataset in modern contexts, data engineering best practices encourage pipelines with idempotent operations. Idempotency should be able to run multiple times without changing the result beyond the initial application. With a property sales dataset, we expect two types of property transactions: the sale of new property or the resale of property. So we should only expect   
+Data engineering best practices encourage pipelines with idempotent operations. Idempotency should be able to run multiple times without changing the result beyond the initial load. With this census dataset, we have a a unique record ID as well as the census date. For the purpose of this excersize, I've opted to use only the census date to control my sql query and ensure reliable and repeatable datafeeds. If I were to transform this script into a pipeline feeding a multi-million row database table, I use the unique record id in conjuction with this census date to bring in and replace records when they are brought in by the pull script. 
 
- that the The dataset has a date field (Sale Date) that facilitates idempotency. This method also allows for easier transformation of this script into a scheduled python that pulls data in reproducible date ranges. 
+ To cope with the 32000 row limit for api calls, I had to develop a pagination method. So in a python function called fetch_ckan_data_page, I use the SQL limit clause to control the rows returned, then used the OFFSET clause (applicable to postgresql) to gather the next rows avaialble within the dataset. Even thought this pagination would have allowed me to query the records throughout my desired date range (two years previous), I wanted to build monthly intervals to form the basis for my date ranges so as to not potentially overwhelm the endpoint. My testing suggested at monthly data pull with a 20000 row limit achieved a reliable and stable mechanism to gather the data.
 
-Since I wanted to use the datastore_search_sql endpoint of the CKAN REST API, I had to resolve an issue with the 
+For data validation, while I rely on traditional pandas filters to ensure data values would be valid for analysis, I also employed a pydantic data model. This ensure that my api call returned the full list of expected columns as well as the formats necessary to achieve my analysis. In particular, I needed to ensure numeric values for the age fields and a date column within census_date. I also added date validation to the api call to ensure date range values added at the head of the script were valid. I produced an error when I trying ending my search range to February 30th, an invalid date. This is a valuable control to have in place when transforming this pull script into a durable and extensible pipeline. 
+
+When I produced the data model at the end, pivoting across months, race, mean census age, and mean years incarcerated, I produced an unexpected finding. I had thought there could be a positive relationship between average age and years incarcerated, wondered if race could be a factor. While not statistically significant, not only did this relationship not prove positive, it actually produced a negative association on occasion. For white prisoners, average age increased steadily even as marked decreases were obsvered in average years incarcerated, especially during 2026. For black prisoners, at around the second half of 2025, large decreases in average age actually coincided with an increase in the average years incarcerated. I don't believe the association suggests causality in anyway, but it does suggest  
+
+![ComparisonFig.png](ComparisonFig.png)
+
+## AI Disclosure
+The only AI assitance utilized within this project involved returns from Google's Gemini AI when searching for relevant functions and libraries within google. The pydantic/pandantic data modeling was primarily derived from examples offered by Gemini, which heavily sourced from a Medium article. I also used Gemini to assist in developing the helper functions for the month ranges, though I have applied similar helpers in my own code previously. I also relied upon it heavily for the plotting within matplotlib, as it has been a minute since I've been compelled to conduct data analysis within python, seeing as I've focused on data engineering methods as of late. 
