@@ -14,10 +14,13 @@ Build a small, reproducible pipeline that ingests data from the WPRDC CKAN API, 
 * [X] AI disclosure: AI tools are allowed. Tell us which you used and for what purpose. We will ask you to walk through your code live should you progress to an interview round.
 
 ## Data Sets
-- [X] Allegheny County Property Sale Transactions
+- [ ] Allegheny County Property Sale Transactions
 - [ ] Allegheny County Weights and Measures Inspections 
 - [ ] Allegheny County Air Quality
-- [ ] Allegheny County Jail Census
+- [X] Allegheny County Jail Census
+
+### Research question:
+_Does the length of a prisoner's stay at the jail influence the average age of the jail population? And does this influence impact different racial groups, specfically when comparing white and black prisoner populations?_
 
 ## Project Design
 
